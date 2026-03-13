@@ -10,7 +10,7 @@ Kết hợp:
 - **Smart contract Solidity (Hardhat)** tại thư mục `QLHT/`
 - **Frontend React + Vite** tại thư mục `frontend/` với UI kiểu AdminLTE, Bootstrap 5, Font Awesome, Recharts.
 
----
+
 
 ## 1. Kiến trúc tổng quan
 
@@ -22,7 +22,7 @@ Kết hợp:
 
 Toàn bộ nghiệp vụ chính đều đi qua **smart contract trên Sepolia**, frontend chỉ là lớp hiển thị & tương tác với MetaMask.
 
----
+
 
 ## 2. Yêu cầu môi trường
 
@@ -30,7 +30,7 @@ Toàn bộ nghiệp vụ chính đều đi qua **smart contract trên Sepolia**,
 - npm >= 9
 - Ví **MetaMask** đã add network **Sepolia** và có một ít ETH test.
 
----
+
 
 ## 3. Cài đặt & chạy smart contract (`QLHT/`)
 
@@ -77,7 +77,7 @@ npx hardhat ignition deploy ignition/modules/StudentStartupFund.js --network sep
 
 Sau khi deploy xong, copy **địa chỉ contract** `StudentStartupFund` để dùng cho frontend.
 
----
+
 
 ## 4. Cấu hình & chạy frontend (`frontend/`)
 
@@ -118,7 +118,7 @@ Mở trình duyệt tại: `http://localhost:5173/`
   - Dashboard: biểu đồ ETH đã donate, phân bổ theo dự án, lượt vote & comment.
   - Quản lý dự án: tạo dự án mới qua modal nhiều tab, bật/tắt hoạt động, in thông tin, xem chi tiết inline.
 
----
+
 
 ## 5. Luồng nghiệp vụ chính
 
@@ -154,5 +154,5 @@ Nhờ đưa donate + vote + comment lên blockchain, hệ thống:
 - **Khó có thể gian lận**: không xoá/sửa bình luận, không sửa số vote.
 - **Minh bạch**: ai cũng có thể kiểm tra trực tiếp trên explorer của Sepolia.
 
----
+
 
