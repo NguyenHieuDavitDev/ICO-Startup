@@ -6,8 +6,10 @@ import PublicLayout  from "./layouts/PublicLayout";
 import AdminLayout   from "./layouts/AdminLayout";
 import Home          from "./pages/Home";
 import ProjectDetail from "./pages/ProjectDetail";
+import MyDividends   from "./pages/MyDividends";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminProjects  from "./pages/AdminProjects";
+import AdminDividends from "./pages/AdminDividends";
 
 import "bootstrap/dist/css/bootstrap.min.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
@@ -22,12 +24,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route element={<PublicLayout />}>
             <Route index        element={<Home />} />
             <Route path="project/:id" element={<ProjectDetail />} />
+          <Route path="my-dividends" element={<MyDividends />} />
           </Route>
 
           {/* ─── ADMIN ─── */}
           <Route path="admin" element={<AdminLayout />}>
             <Route index        element={<AdminDashboard />} />
             <Route path="projects" element={<AdminProjects />} />
+          <Route path="dividends" element={<AdminDividends />} />
           </Route>
         </Routes>
       </BrowserRouter>

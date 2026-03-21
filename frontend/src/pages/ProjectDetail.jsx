@@ -6,6 +6,7 @@ import Donate       from "../components/Donate";
 import Vote         from "../components/Vote";
 import Comment      from "../components/Comment";
 import CommentList  from "../components/CommentList";
+import Dividends    from "../components/Dividends";
 import ProjectImage from "../components/ProjectImage";
 
 export default function ProjectDetail() {
@@ -85,6 +86,7 @@ export default function ProjectDetail() {
     { key:"overview",  icon:"fa-info-circle",  label:"Tổng quan"  },
     { key:"team",      icon:"fa-users",         label:"Đội ngũ"    },
     { key:"interact",  icon:"fa-hand-point-up", label:"Tham gia"   },
+    { key:"dividends", icon:"fa-coins",         label:"Cổ tức"     },
     { key:"comments",  icon:"fa-comments",      label:"Bình luận"  },
   ];
 
@@ -266,6 +268,11 @@ export default function ProjectDetail() {
               <Vote projectId={projectId} pushToast={pushToast} />
             </div>
           </div>
+        )}
+
+        {/* ── Cổ tức ── */}
+        {activeTab === "dividends" && (
+          <Dividends projectId={projectId} pushToast={pushToast} />
         )}
 
         {/* ── Bình luận ── */}

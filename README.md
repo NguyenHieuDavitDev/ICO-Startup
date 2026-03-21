@@ -1,26 +1,28 @@
 ## Quỹ Hỗ Trợ Startup Sinh Viên (Student Startup Fund)
 
-Nền tảng gây quỹ, bình chọn và giám sát các dự án khởi nghiệp của sinh viên trên **Ethereum (Sepolia)**.  
-Mọi hoạt động donate, vote, bình luận đều ghi on-chain, giúp **minh bạch, không thể sửa đổi, không phụ thuộc bên trung gian**.
+Nền tảng gây quỹ, bình chọn, bình luận và **chốt cổ tức / nhận cổ tức** cho các dự án khởi nghiệp sinh viên trên **Ethereum (Sepolia)**.  
+Mọi hoạt động donate, vote, bình luận, chốt và claim cổ tức đều ghi on-chain, giúp **minh bạch, không thể sửa đổi, không phụ thuộc bên trung gian**.
 
-- **Admin**: tạo & quản lý dự án, cấu hình thông tin ICO, thời gian, đội ngũ, token, rút vốn khi cộng đồng phê duyệt.
-- **Nhà đầu tư / cộng đồng**: duyệt danh sách dự án, donate ETH, vote tín nhiệm / giải ngân, bình luận & đánh giá.
+- **Admin (owner contract)**: tạo & quản lý dự án, bật/tắt hiển thị, **chốt cổ tức** (`finalizeDividends`), **rút ETH khẩn cấp** (`withdraw`) trước khi chốt cổ tức.
+- **Nhà đầu tư / cộng đồng**: duyệt dự án, **donate ETH trong IOC**, **vote tín nhiệm (trong IOC)**, **vote giải ngân (sau IOC, chỉ người đã donate)**, bình luận & đánh giá, **claim cổ tức** sau khi admin chốt.
 
 Kết hợp:
-- **Smart contract Solidity (Hardhat)** tại thư mục `QLHT/`
-- **Frontend React + Vite** tại thư mục `frontend/` với UI kiểu AdminLTE, Bootstrap 5, Font Awesome, Recharts.
+
+- **Smart contract Solidity (Hardhat)** tại thư mục `QLHT/` — file chính: `contracts/StudentStartupFund.sol`
+- **Frontend React + Vite** tại thư mục `frontend/` (UI AdminLTE-style, Bootstrap 5, Font Awesome, Recharts)
 
 
 
 ## 1. Kiến trúc tổng quan
 
-- `QLHT/`: mã nguồn smart contract `StudentStartupFund.sol`, cấu hình Hardhat, scripts deploy.
-- `frontend/`: SPA React hiển thị:
-  - Trang chủ `/`: danh sách dự án, header/footer, project card có hình ảnh, click vào card → trang chi tiết.
-  - Trang chi tiết `/project/:id`: donate, vote, comment, xem đội ngũ, thông tin token, tiến độ.
-  - Khu admin `/admin`: dashboard tổng quan (chart), quản lý dự án (tạo mới, bật/tắt, in thông tin, xem chi tiết inline).
+- `QLHT/`: mã nguồn `StudentStartupFund.sol`, Hardhat, Ignition module, script deploy `scripts/deploy.js`.
+- `frontend/`: SPA React:
+  - `/` — danh sách dự án, kết nối ví.
+  - `/project/:id` — chi tiết: tổng quan, đội ngũ, **Tham gia** (donate + vote), **Cổ tức** (claim), bình luận.
+  - `/my-dividends` — danh sách dự án có cổ tức có thể nhận, claim từng dự án.
+  - `/admin` — dashboard, quản lý dự án, **Chia cổ tức** (`/admin/dividends`) để chốt cổ tức theo dự án.
 
-Toàn bộ nghiệp vụ chính đều đi qua **smart contract trên Sepolia**, frontend chỉ là lớp hiển thị & tương tác với MetaMask.
+Toàn bộ nghiệp vụ chính đi qua **smart contract trên Sepolia**; frontend chỉ hiển thị và gọi MetaMask.
 
 
 
@@ -28,7 +30,7 @@ Toàn bộ nghiệp vụ chính đều đi qua **smart contract trên Sepolia**,
 
 - Node.js >= 18
 - npm >= 9
-- Ví **MetaMask** đã add network **Sepolia** và có một ít ETH test.
+- Ví **MetaMask** đã add network **Sepolia** và có ETH test.
 
 
 
@@ -50,8 +52,7 @@ INFURA_API_KEY=your_infura_key
 SEPOLIA_PRIVATE_KEY=0x_your_private_key
 ```
 
-- Private key là của ví deploy (ví admin), **tuyệt đối không dùng ví chính chứa tài sản thật**.
-- File này đã được `.gitignore` bỏ qua, an toàn khi push code.
+- Private key là của ví deploy (owner contract), **không dùng ví chứa tài sản thật**.
 
 ### 3.3 Compile contract
 
@@ -60,22 +61,27 @@ cd QLHT
 npx hardhat compile
 ```
 
-Nếu compile thành công sẽ thấy dòng:
-
-```text
-Compiled 1 Solidity file successfully
-```
-
 ### 3.4 Deploy lên Sepolia
 
-Sử dụng **Hardhat Ignition** hoặc script deploy (tùy bạn đang dùng), ví dụ:
+**Cách 1 — Script (khuyến nghị, không cần xác nhận Ignition, có thể ghi đè `frontend/.env`):**
+
+```bash
+cd QLHT
+npx hardhat run scripts/deploy.js --network sepolia
+```
+
+**Cách 2 — Hardhat Ignition** (nếu bytecode thay đổi so với lần deploy trước, có thể cần xóa `ignition/deployments/chain-11155111` hoặc dùng flow reset theo tài liệu Hardhat):
 
 ```bash
 cd QLHT
 npx hardhat ignition deploy ignition/modules/StudentStartupFund.js --network sepolia
 ```
 
-Sau khi deploy xong, copy **địa chỉ contract** `StudentStartupFund` để dùng cho frontend.
+Sau deploy, đặt địa chỉ contract vào `frontend/.env` (`VITE_STUDENT_FUND_ADDRESS=...`) và đồng bộ ABI nếu cần:
+
+```bash
+cp QLHT/artifacts/contracts/StudentStartupFund.sol/StudentStartupFund.json frontend/src/abi/StudentStartupFund.json
+```
 
 
 
@@ -90,13 +96,13 @@ npm install
 
 ### 4.2 Cấu hình môi trường frontend
 
-Tạo file `frontend/.env`:
+Tạo / sửa `frontend/.env`:
 
 ```bash
 VITE_STUDENT_FUND_ADDRESS=0x...ĐỊA_CHỈ_CONTRACT_TỪ_SEPOLIA...
 ```
 
-> Frontend tự động đọc `VITE_STUDENT_FUND_ADDRESS` và dùng ABI mới nhất từ `src/abi/StudentStartupFund.json` để kết nối contract.
+Frontend đọc ABI từ `src/abi/StudentStartupFund.json` (phải khớp bản compile mới nhất).
 
 ### 4.3 Chạy dự án
 
@@ -105,54 +111,103 @@ cd frontend
 npm run dev
 ```
 
-Mở trình duyệt tại: `http://localhost:5173/`
-
-- `http://localhost:5173/` – **Trang chủ**
-  - Header + Footer hoàn chỉnh.
-  - Hero section, thống kê nhanh.
-  - Danh sách project cards (có hình, tiến độ, trạng thái). Click bất kỳ chỗ nào trong card → `Trang chi tiết`.
-- `http://localhost:5173/project/:id` – **Trang chi tiết dự án**
-  - Tab **Tổng quan / Đội ngũ / Tham gia / Bình luận**.
-  - Thực hiện **donate, vote, comment** trực tiếp on-chain (cần MetaMask + phí gas).
-- `http://localhost:5173/admin` – **Trang quản trị**
-  - Dashboard: biểu đồ ETH đã donate, phân bổ theo dự án, lượt vote & comment.
-  - Quản lý dự án: tạo dự án mới qua modal nhiều tab, bật/tắt hoạt động, in thông tin, xem chi tiết inline.
+- `http://localhost:5173/` — Trang chủ, kết nối / ngắt ví, link **Cổ tức của tôi**.
+- `http://localhost:5173/project/:id` — Chi tiết: donate, vote, cổ tức, comment.
+- `http://localhost:5173/my-dividends` — Nhận cổ tức đa dự án.
+- `http://localhost:5173/admin` — Admin: dashboard, dự án, **Chia cổ tức**.
 
 
 
-## 5. Luồng nghiệp vụ chính
+## 5. Smart contract `StudentStartupFund.sol` — tính năng & luồng
 
-### 5.1 Admin tạo dự án mới
+### 5.1 Dữ liệu chính (on-chain)
 
-1. Đăng nhập MetaMask với ví admin (chính là ví deploy contract).
-2. Vào `/admin` → tab **Quản lý dự án** → bấm **“Thêm dự án mới”**.
-3. Nhập:
-   - Thông tin dự án: tên, mô tả, URL hình ảnh (có preview trực tiếp).
-   - Đội ngũ: nhiều thành viên, vai trò, mô tả, link mạng xã hội.
-   - Token & IOC: tên token, symbol, địa chỉ token, giá IOC, mục tiêu ETH.
-   - Thời gian: mốc IOC & mốc dự án (hoặc để trống để dùng default).
-4. Xác nhận giao dịch MetaMask → contract `createProject` lưu toàn bộ dữ liệu on-chain.
+- **`Project`**: id, title, description, image, teamJson, token (name, symbol, address, price), goal, totalDonated, projectStart/End, iocStart/End, trustVotes, withdrawVotes, status (enum), active, **dividendPool**, **dividendDenominator**, **dividendsFinalized**.
+- **`donatedByUser[projectId][user]`**: số wei user đã donate (dùng cho tỷ lệ cổ tức).
+- **`claimedDividends[projectId][user]`**: phần cổ tức đã nhận.
+- **`votedTrust` / `votedWithdraw`**: mỗi ví tối đa 1 lần / loại / dự án.
+- **Bình luận**: lưu trong `projectComments` (user, content, rating 1–5, timestamp).
 
-### 5.2 Người dùng donate, vote, bình luận
+**Trạng thái dự án (`ProjectStatus`)**: Upcoming, Funding, Ongoing, Completed, Cancelled — được tính nội bộ theo thời gian IOC / dự án (không phải mọi giá trị enum đều được gán thủ công trong mọi nhánh).
 
-Trên trang chi tiết dự án:
+### 5.2 Admin — `createProject`
 
-- **Donate**:
-  - Nhập số ETH → MetaMask mở popup → gửi `donate(projectId)` với `msg.value` đúng số ETH.
-  - Thành công: tổng `totalDonated` tăng, dashboard & trang chủ cập nhật tiến độ.
+- Chỉ **owner**.
+- Bắt buộc: title, goal > 0.
+- Nếu **projectStart = projectEnd = 0**: mặc định `projectStart = now`, `projectEnd = now + 90 days`.
+- Nếu **iocStart = iocEnd = 0**: mặc định `iocStart = now`, `iocEnd = now + 30 days`.
+- Ràng buộc: `iocStart < iocEnd`, `projectStart <= projectEnd`.
 
-- **Vote**:
-  - 2 loại vote: **tín nhiệm** và **giải ngân** (`voteTrust`, `voteWithdraw`).
-  - Mỗi ví chỉ được vote 1 lần / loại vote / dự án, mọi vote đều tốn một lượng gas nhỏ và (tuỳ cấu hình) có thể kèm fee vote.
+### 5.3 Admin — `setProjectActive(projectId, active)`
 
-- **Bình luận**:
-  - Nội dung + đánh giá sao (1–5).
-  - Mỗi comment gửi on-chain qua `addComment(projectId, content, rating)` và tốn gas; có thể cấu hình **commentFee** nhỏ để chống spam.
-  - Danh sách comment hiển thị lại đầy đủ từ contract.
+- Bật/tắt hoạt động dự án; **không** cho phép nếu dự án đã **chốt cổ tức** (`dividendsFinalized`).
 
-Nhờ đưa donate + vote + comment lên blockchain, hệ thống:
-- **Khó có thể gian lận**: không xoá/sửa bình luận, không sửa số vote.
-- **Minh bạch**: ai cũng có thể kiểm tra trực tiếp trên explorer của Sepolia.
+### 5.4 Donate — `donate(projectId)` (payable)
+
+- Chỉ trong **`iocStart` ≤ now ≤ `iocEnd`**.
+- Dự án **active**, chưa **finalized** cổ tức, `msg.value > 0`.
+- Cộng `totalDonated` và `donatedByUser`.
+
+### 5.5 Bình luận — `addComment`, `getCommentsCount`, `getComment`
+
+- Dự án **active**; nội dung không rỗng; rating **1–5**.
+- **Không** khóa theo thời gian IOC (chỉ cần dự án còn active).
+- **Không** có phí comment on-chain trong contract hiện tại.
+
+### 5.6 Vote tín nhiệm — `voteTrust`
+
+- Trong **IOC** (`iocStart` … `iocEnd`), dự án active, chưa finalized, mỗi ví vote **một lần**.
+
+### 5.7 Vote giải ngân — `voteWithdraw`
+
+- **Sau khi IOC kết thúc** (`now > iocEnd`).
+- Chỉ **nhà đầu tư đã donate** (`donatedByUser > 0`), dự án active, chưa finalized, mỗi ví một lần.
+- Dùng để thể hiện đồng thuận cộng đồng; **finalize cổ tức** trong contract hiện tại **không** bắt buộc số phiếu tối thiểu (owner vẫn có thể chốt theo điều kiện riêng dưới đây).
+
+### 5.8 Chốt cổ tức & giải ngân treasury — `finalizeDividends` (chỉ owner)
+
+Điều kiện:
+
+- Chưa **finalized**, **IOC đã kết thúc**, `totalDonated > 0`, `treasury != 0`, **`dividendAmount <= totalDonated`**.
+
+Hành vi:
+
+- `dividendPool = dividendAmount` — tổng ETH phân bổ cho nhà đầu tư (theo tỷ lệ donate).
+- `dividendDenominator = totalDonated`.
+- `treasuryAmount = totalDonated - dividendAmount` gửi tới **`treasury`** (nếu > 0).
+- Đánh dấu **dividendsFinalized = true**, **active = false**.
+
+Công thức phần được nhận (trước khi claim):  
+`(userDonated * dividendPool) / dividendDenominator`, trừ phần đã claim.
+
+### 5.9 Nhận cổ tức — `claimDividends`, `getClaimableDividends`
+
+- Sau khi finalized, user gọi `claimDividends(projectId)`; số nhận = `getClaimableDividends(projectId, user)` (view).
+- Cập nhật `claimedDividends`, chuyển ETH bằng `call`.
+
+### 5.10 Rút khẩn cấp — `withdraw` (chỉ owner)
+
+- Chuyển `amount` ETH tới `to`; **không** cho phép nếu dự án đã **finalized** cổ tức.
+- Dùng khi cần xử lý trước khi chốt (lưu ý: rút làm giảm balance contract — cần đảm bảo đủ ETH khi chốt/claim).
+
+### 5.11 Sự kiện (events)
+
+`ProjectCreated`, `DonationReceived`, `CommentAdded`, `VotedTrust`, `VotedWithdraw`, `Withdrawn`, `ProjectDisbursed`, `DividendClaimed` — phục vụ indexer / explorer.
 
 
 
+## 6. Luồng nghiệp vụ gợi ý (end-to-end)
+
+1. **Admin** tạo dự án (`createProject`), có thể chỉnh active (`setProjectActive`).
+2. Trong **IOC**: cộng đồng **donate**, **vote tín nhiệm**; có thể **bình luận** nếu dự án active.
+3. **Sau IOC**: nhà đầu tư đã donate có thể **vote giải ngân**.
+4. Khi IOC đã hết và có tiền góp: **owner** gọi **`finalizeDividends`** (nhập treasury + số ETH cổ tức cho pool nhà đầu tư).
+5. Nhà đầu tư vào tab **Cổ tức** / trang **Cổ tức của tôi** và gọi **`claimDividends`**.
+
+
+
+## 7. Lưu ý bảo mật & vận hành
+
+- **Owner** có quyền cao: tạo dự án, chốt cổ tức, rút ETH (trước khi finalized). Bảo vệ private key deploy.
+- Mỗi lần **đổi logic contract** cần **deploy lại** và cập nhật `VITE_STUDENT_FUND_ADDRESS` + ABI; dữ liệu dự án cũ nằm ở địa chỉ contract cũ.
+- Đọc explorer Sepolia để đối chiếu giao dịch và sự kiện.

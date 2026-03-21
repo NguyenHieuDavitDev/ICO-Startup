@@ -30,6 +30,9 @@ contract StudentStartupFund {
         uint256 withdrawVotes;
         ProjectStatus status;
         bool active;
+        uint256 dividendPool;
+        uint256 dividendDenominator;
+        bool dividendsFinalized;
     }
 
     struct Comment {
@@ -45,7 +48,8 @@ contract StudentStartupFund {
     uint256 public projectCount;
 
     mapping(uint256 => Comment[]) private projectComments;
-
+    mapping(uint256 => mapping(address => uint256)) public donatedByUser;
+    mapping(uint256 => mapping(address => uint256)) public claimedDividends;
     mapping(uint256 => mapping(address => bool)) public votedTrust;
     mapping(uint256 => mapping(address => bool)) public votedWithdraw;
 
@@ -55,6 +59,13 @@ contract StudentStartupFund {
     event VotedTrust(uint256 indexed projectId, address indexed user);
     event VotedWithdraw(uint256 indexed projectId, address indexed user);
     event Withdrawn(uint256 indexed projectId, address indexed to, uint256 amount);
+    event ProjectDisbursed(
+        uint256 indexed projectId,
+        address indexed treasury,
+        uint256 treasuryAmount,
+        uint256 dividendPool
+    );
+    event DividendClaimed(uint256 indexed projectId, address indexed user, uint256 amount);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner");
@@ -84,9 +95,6 @@ contract StudentStartupFund {
         }
         if (block.timestamp > iocEnd && block.timestamp <= projectEnd) {
             return ProjectStatus.Ongoing;
-        }
-        if (block.timestamp < iocStart) {
-            return ProjectStatus.Upcoming;
         }
         return ProjectStatus.Upcoming;
     }
@@ -144,12 +152,14 @@ contract StudentStartupFund {
                 trustVotes: 0,
                 withdrawVotes: 0,
                 status: status,
-                active: true
+                active: true,
+                dividendPool: 0,
+                dividendDenominator: 0,
+                dividendsFinalized: false
             })
         );
 
         projectCount = projects.length;
-
         emit ProjectCreated(id, title);
         return id;
     }
@@ -159,6 +169,7 @@ contract StudentStartupFund {
         onlyOwner
         validProject(projectId)
     {
+        require(!projects[projectId].dividendsFinalized, "Already finalized");
         projects[projectId].active = active;
     }
 
@@ -166,6 +177,7 @@ contract StudentStartupFund {
         return projects.length;
     }
 
+    // Donate trong thời gian IOC
     function donate(uint256 projectId)
         external
         payable
@@ -175,16 +187,19 @@ contract StudentStartupFund {
 
         Project storage p = projects[projectId];
         require(p.active, "Project inactive");
+        require(!p.dividendsFinalized, "Already finalized");
         require(
             block.timestamp >= p.iocStart && block.timestamp <= p.iocEnd,
             "Not in IOC time"
         );
 
         p.totalDonated += msg.value;
+        donatedByUser[projectId][msg.sender] += msg.value;
 
         emit DonationReceived(projectId, msg.sender, msg.value);
     }
 
+    // Bình luận — không giới hạn thời gian, chỉ cần project còn active
     function addComment(
         uint256 projectId,
         string memory content,
@@ -194,7 +209,10 @@ contract StudentStartupFund {
         validProject(projectId)
     {
         require(bytes(content).length > 0, "Content required");
-        require(rating >= 1 && rating <= 5, "Rating 1-5");
+        require(rating >= 1 && rating <= 5, "Rating must be 1-5");
+
+        Project storage p = projects[projectId];
+        require(p.active, "Project inactive");
 
         projectComments[projectId].push(
             Comment({
@@ -233,28 +251,113 @@ contract StudentStartupFund {
         return (c.user, c.content, c.rating, c.timestamp);
     }
 
+    // Vote tín nhiệm — trong thời gian IOC
     function voteTrust(uint256 projectId)
         external
         validProject(projectId)
     {
+        Project storage p = projects[projectId];
+        require(p.active, "Project inactive");
+        require(!p.dividendsFinalized, "Already finalized");
+        require(
+            block.timestamp >= p.iocStart && block.timestamp <= p.iocEnd,
+            "Not in IOC time"
+        );
         require(!votedTrust[projectId][msg.sender], "Already voted");
+
         votedTrust[projectId][msg.sender] = true;
         projects[projectId].trustVotes += 1;
 
         emit VotedTrust(projectId, msg.sender);
     }
 
+    // Vote giải ngân — SAU KHI IOC kết thúc, chỉ nhà đầu tư đã donate
     function voteWithdraw(uint256 projectId)
         external
         validProject(projectId)
     {
+        Project storage p = projects[projectId];
+        require(p.active, "Project inactive");
+        require(!p.dividendsFinalized, "Already finalized");
+        require(block.timestamp > p.iocEnd, "IOC not ended yet");
+        require(donatedByUser[projectId][msg.sender] > 0, "Not a donor");
         require(!votedWithdraw[projectId][msg.sender], "Already voted");
+
         votedWithdraw[projectId][msg.sender] = true;
         projects[projectId].withdrawVotes += 1;
 
         emit VotedWithdraw(projectId, msg.sender);
     }
 
+    // Admin chốt cổ tức — chỉ cần IOC đã kết thúc và có donations
+    // dividendAmount: số ETH trả cho nhà đầu tư (phần còn lại vào treasury)
+    function finalizeDividends(
+        uint256 projectId,
+        address payable treasury,
+        uint256 dividendAmount
+    )
+        external
+        onlyOwner
+        validProject(projectId)
+    {
+        Project storage p = projects[projectId];
+        require(!p.dividendsFinalized, "Already finalized");
+        require(block.timestamp > p.iocEnd, "IOC not ended");
+        require(treasury != address(0), "Zero address");
+        require(p.totalDonated > 0, "No donations yet");
+        require(dividendAmount <= p.totalDonated, "Exceeds total donated");
+
+        uint256 treasuryAmount = p.totalDonated - dividendAmount;
+
+        p.dividendPool = dividendAmount;
+        p.dividendDenominator = p.totalDonated;
+        p.dividendsFinalized = true;
+        p.active = false;
+
+        if (treasuryAmount > 0) {
+            (bool ok, ) = treasury.call{value: treasuryAmount}("");
+            require(ok, "Treasury transfer failed");
+        }
+
+        emit ProjectDisbursed(projectId, treasury, treasuryAmount, dividendAmount);
+    }
+
+    // Nhà đầu tư nhận cổ tức
+    function claimDividends(uint256 projectId)
+        external
+        validProject(projectId)
+    {
+        uint256 claimable = getClaimableDividends(projectId, msg.sender);
+        require(claimable > 0, "Nothing to claim");
+
+        claimedDividends[projectId][msg.sender] += claimable;
+
+        (bool ok, ) = payable(msg.sender).call{value: claimable}("");
+        require(ok, "Transfer failed");
+
+        emit DividendClaimed(projectId, msg.sender, claimable);
+    }
+
+    function getClaimableDividends(uint256 projectId, address user)
+        public
+        view
+        validProject(projectId)
+        returns (uint256)
+    {
+        Project storage p = projects[projectId];
+        if (!p.dividendsFinalized) return 0;
+        if (p.dividendPool == 0 || p.dividendDenominator == 0) return 0;
+
+        uint256 userDonated = donatedByUser[projectId][user];
+        if (userDonated == 0) return 0;
+
+        uint256 owed = (userDonated * p.dividendPool) / p.dividendDenominator;
+        uint256 alreadyClaimed = claimedDividends[projectId][user];
+        if (owed <= alreadyClaimed) return 0;
+        return owed - alreadyClaimed;
+    }
+
+    // Admin rút ETH khẩn cấp (không ảnh hưởng dự án đã finalize)
     function withdraw(
         uint256 projectId,
         address payable to,
@@ -265,10 +368,12 @@ contract StudentStartupFund {
         validProject(projectId)
     {
         require(to != address(0), "Zero address");
+        require(amount > 0, "Amount must be > 0");
         require(amount <= address(this).balance, "Insufficient balance");
-        require(projects[projectId].withdrawVotes >= 3, "Not enough votes");
+        require(!projects[projectId].dividendsFinalized, "Already finalized");
 
-        to.transfer(amount);
+        (bool ok, ) = to.call{value: amount}("");
+        require(ok, "Transfer failed");
 
         emit Withdrawn(projectId, to, amount);
     }

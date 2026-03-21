@@ -12,14 +12,22 @@ export default function Comment({ projectId, pushToast, onSubmitted }) {
       return;
     }
     try {
-      setLoading(true);
-      const c  = await getContract();
-      const tx = await c.addComment(projectId, content.trim(), Number(rating));
-      await tx.wait();
-      if (pushToast) pushToast("Bình luận đã được gửi!", "success");
-      setContent("");
-      setRating(5);
-      if (onSubmitted) onSubmitted();
+      // bước 1: set loading là true để hiển thị loading .
+      // bước 2: lấy contract từ hàm getContract. Nếu không có contract thì throw error.
+      // bước 3: gửi giao dịch để thêm bình luận vào smart contract thông qua hàm addComment.
+      // bước 4: đợi giao dịch hoàn thành. Nếu giao dịch không hoàn thành thì throw error.
+      // bước 5: hiển thị thông báo thành công.
+      // bước 6: reset nội dung bình luận.
+      // bước 7: reset đánh giá.
+      // bước 8: gọi hàm onSubmitted để cập nhật danh sách bình luận. Nếu không có onSubmitted thì không gọi hàm onSubmitted.
+      setLoading(true); // set loading là true để hiển thị loading.
+      const c  = await getContract(); // lấy contract từ hàm getContract.
+      const tx = await c.addComment(projectId, content.trim(), Number(rating)); // gửi giao dịch để thêm bình luận vào smart contract thông qua hàm addComment.
+      await tx.wait(); // đợi giao dịch hoàn thành.
+      if (pushToast) pushToast("Bình luận đã được gửi!", "success"); // hiển thị thông báo thành công.
+      setContent(""); // reset nội dung bình luận.
+      setRating(5); // reset đánh giá.
+      if (onSubmitted) onSubmitted(); // gọi hàm onSubmitted để cập nhật danh sách bình luận.
     } catch (err) {
       const m = err?.message || "";
       const msg = m.includes("MetaMask")

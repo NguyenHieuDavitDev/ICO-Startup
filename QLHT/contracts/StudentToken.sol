@@ -8,13 +8,12 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-// contract StudentToken là contract của token của dự án
 // contract StudentToken kế thừa từ ERC20, ERC20Capped, ERC20Burnable, Pausable, Ownable
 // ERC20 là contract của token
 // ERC20Capped là contract của token có số lượng token tối đa
 // ERC20Burnable là contract của token có thể burn
 // Pausable là contract của token có thể pause
-// Ownable là contract của token có thể chỉ định owner
+// Ownable là contract của token có thể chỉ định owner 
 contract StudentToken is
     ERC20, 
     ERC20Capped,

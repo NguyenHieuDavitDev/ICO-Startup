@@ -5,6 +5,7 @@ import Donate       from "./Donate";
 import Vote         from "./Vote";
 import Comment      from "./Comment";
 import CommentList  from "./CommentList";
+import Dividends    from "./Dividends";
 import ProjectImage from "./ProjectImage";
 
 export default function ProjectDetailInline({ projectId, pushToast, onClose }) {
@@ -47,6 +48,7 @@ export default function ProjectDetailInline({ projectId, pushToast, onClose }) {
     { key:"overview", icon:"fa-info-circle", label:"Thông tin"    },
     { key:"team",     icon:"fa-users",        label:"Đội ngũ"      },
     { key:"interact", icon:"fa-coins",        label:"Donate/Vote"  },
+    { key:"dividends",icon:"fa-hand-holding-usd", label:"Cổ tức"     },
     { key:"comments", icon:"fa-comments",     label:"Bình luận"    },
   ];
 
@@ -172,6 +174,11 @@ export default function ProjectDetailInline({ projectId, pushToast, onClose }) {
                 <div className="col-md-6"><Donate projectId={projectId} pushToast={pushToast} /></div>
                 <div className="col-md-6"><Vote   projectId={projectId} pushToast={pushToast} /></div>
               </div>
+            )}
+
+            {/* Dividends */}
+            {activeTab === "dividends" && (
+              <Dividends projectId={projectId} pushToast={pushToast} adminMode />
             )}
 
             {/* Comments */}
